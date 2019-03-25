@@ -9,23 +9,23 @@
 
 namespace zyppng {
 
-	class Task;
-	class ContextPrivate;
-	class LIBZYPP_NG_EXPORT Context : public Base
-	{
-		ZYPP_DECLARE_PRIVATE(Context)
-	public:
-		using Ptr = std::shared_ptr<Context>;
-		using WeakPtr = std::weak_ptr<Context>;
-		using TrackPtr = weak_trackable_ptr<Context>;
+  class Task;
+  class ContextPrivate;
+  class LIBZYPP_NG_EXPORT Context : public Base
+  {
+    ZYPP_DECLARE_PRIVATE(Context)
+  public:
+    using Ptr = std::shared_ptr<Context>;
+    using WeakPtr = std::weak_ptr<Context>;
+    using TrackPtr = weak_trackable_ptr<Context>;
 
-		Context();
+    Context();
 
-		bool runTask( std::shared_ptr<Task> task );
+    bool runTask( std::shared_ptr<Task> task );
 
-		SignalProxy<void( )> sigTaskStarted () const;
-		SignalProxy<void()> sigTaskFinished () const;
-	};
+    SignalProxy<void( )> sigTaskStarted () const;
+    SignalProxy<void()> sigTaskFinished () const;
+  };
 }
 
 

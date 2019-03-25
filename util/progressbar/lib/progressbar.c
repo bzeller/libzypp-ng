@@ -49,7 +49,7 @@ progressbar *progressbar_new_with_format(const char *label, unsigned long max, c
   if(new == NULL) {
     return NULL;
   }
-    
+
   new->max = max;
   new->value = 0;
   new->start = time(NULL);
@@ -166,12 +166,12 @@ static void progressbar_draw(const progressbar *bar)
   int progressbar_completed = (bar->value >= bar->max);
   int bar_piece_count = bar_width - BAR_BORDER_WIDTH;
   int bar_piece_current = (progressbar_completed)
-                          ? bar_piece_count
-                          : bar_piece_count * ((double) bar->value / bar->max);
+                            ? bar_piece_count
+                            : bar_piece_count * ((double) bar->value / bar->max);
 
   progressbar_time_components eta = (progressbar_completed)
-		                            ? progressbar_calc_time_components(difftime(time(NULL), bar->start))
-		                            : progressbar_calc_time_components(progressbar_remaining_seconds(bar));
+                                      ? progressbar_calc_time_components(difftime(time(NULL), bar->start))
+                                      : progressbar_calc_time_components(progressbar_remaining_seconds(bar));
 
   if (label_width == 0) {
     // The label would usually have a trailing space, but in the case that we don't print

@@ -9,15 +9,15 @@
 namespace zyppng
 {
 
-	class BasePrivate : public sigc::trackable
-	{
-		ZYPP_DECLARE_PUBLIC(Base)
-	public:
-		virtual ~BasePrivate();
-		Base::TrackPtr parent { nullptr };
-		std::unordered_set< Base::Ptr > children;
-		Base *z_ptr = nullptr;
-	};
+  class BasePrivate : public sigc::trackable
+  {
+    ZYPP_DECLARE_PUBLIC(Base)
+  public:
+    virtual ~BasePrivate();
+    Base::TrackPtr parent { nullptr };
+    std::unordered_set< Base::Ptr > children;
+    Base *z_ptr = nullptr;
+  };
 
 }
 

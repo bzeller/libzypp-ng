@@ -5,8 +5,8 @@
 
 namespace zyppng {
 
-	using IdString = zypp::IdString;
-	using IdStringSet = zypp::IdStringSet;
+  using IdString = zypp::IdString;
+  using IdStringSet = zypp::IdStringSet;
 
 }
 

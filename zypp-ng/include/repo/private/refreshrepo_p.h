@@ -8,26 +8,26 @@
 
 namespace zyppng {
 
-	class RefreshRepoPrivate : public TaskPrivate
-	{
-	public:
-		RefreshRepoPrivate ( std::string &&repo );
-		std::string _repoToRefresh;
-		sigc::connection _timerConnection;
-		int _currProgress = 0;
-	};
+  class RefreshRepoPrivate : public TaskPrivate
+  {
+  public:
+    RefreshRepoPrivate ( std::string &&repo );
+    std::string _repoToRefresh;
+    sigc::connection _timerConnection;
+    int _currProgress = 0;
+  };
 
-	class RefreshRepositoriesPrivate : public TaskPrivate
-	{
-		ZYPP_DECLARE_PUBLIC(RefreshRepositories)
-	public:
-		std::vector<std::string> _requestedRepos;
+  class RefreshRepositoriesPrivate : public TaskPrivate
+  {
+    ZYPP_DECLARE_PUBLIC(RefreshRepositories)
+  public:
+    std::vector<std::string> _requestedRepos;
 
-		std::unordered_set<RefreshRepo::Ptr> runningRefreshTasks;
+    std::unordered_set<RefreshRepo::Ptr> runningRefreshTasks;
 
-		void onRefreshTaskFinished ( std::weak_ptr<Task> rTask );
-		void onSubtaskProgress( const Task &, std::string, int );
-	};
+    void onRefreshTaskFinished ( std::weak_ptr<Task> rTask );
+    void onSubtaskProgress( const Task &, std::string, int );
+  };
 
 }
 

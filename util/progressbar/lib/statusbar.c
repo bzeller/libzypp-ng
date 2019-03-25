@@ -69,12 +69,12 @@ void statusbar_draw(statusbar *bar)
   }
 
   fprintf(
-        stderr,
-        "%s: %c%n",
-        bar->label,
-        bar->format[bar->format_index],
-        &(bar->last_printed)
-    );
+    stderr,
+    "%s: %c%n",
+    bar->label,
+    bar->format[bar->format_index],
+    &(bar->last_printed)
+          );
 
   return;
 }

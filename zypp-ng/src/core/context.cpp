@@ -2,37 +2,59 @@
 #include "core/private/context_p.h"
 #include "core/private/base_p.h"
 
+#include <zypp/ZYppFactory.h>
+
+#include <glibmm/main.h>
+
+
 namespace zyppng {
 
-	void ContextPrivate::onTaskFinished( Task::WeakPtr task )
-	{
-		Task::Ptr lockedTask = task.lock();
-		if ( lockedTask == currentTask ) {
+  ContextPrivate::ContextPrivate()
+  {
+    zyppApi = zypp::getZYpp();
+  }
 
-			taskFinishedConnection.disconnect();
+  void ContextPrivate::onTaskFinished( Task::WeakPtr task )
+  {
+    Task::Ptr lockedTask = task.lock();
+    if ( lockedTask == currentTask ) {
 
-			// clear reference counter on Task, this might delete the object
-			currentTask.reset();
-		}
-	}
+      taskFinishedConnection.disconnect();
 
-	Context::Context() : Base ( *new ContextPrivate )
-	{
+      // clear reference counter on Task, this might delete the object
+      currentTask.reset();
+    }
+  }
 
-	}
+  bool ContextPrivate::onIdle()
+  {
+    taskFinishedConnection = currentTask->sigFinished().connect( sigc::mem_fun( *this, &ContextPrivate::onTaskFinished ) );
+    currentTask->start( z_ptr->shared_this<Context>() );
 
-	bool Context::runTask( std::shared_ptr<Task> task )
-	{
-		Z_D();
-		if ( d->currentTask )
-			return d->currentTask == task;
+    //lets not get called again
+    return false;
+  }
 
-		d->currentTask = task;
+  Context::Context() : Base ( *new ContextPrivate )
+  {
 
-		task->sigFinished().connect( sigc::mem_fun( *d_func(), &ContextPrivate::onTaskFinished ) );
-		task->start( shared_this<Context>() );
+  }
 
-		return true;
-	}
+  bool Context::runTask( std::shared_ptr<Task> task )
+  {
+    Z_D();
+    if ( d->currentTask )
+      return d->currentTask == task;
+
+    d->currentTask = task;
+
+    Glib::RefPtr<Glib::MainContext> ctx = Glib::MainContext::get_default();
+    if ( !ctx )
+      return false;
+
+    //make sure the task is not started before the main loop was executed
+    ctx->signal_idle().connect( sigc::mem_fun( *d_func(), &ContextPrivate::onIdle ) );
+    return true;
+  }
 
 }
