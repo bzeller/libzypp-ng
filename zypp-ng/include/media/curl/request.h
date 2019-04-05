@@ -27,7 +27,7 @@ namespace zyppng {
       Error,      // Error, use error function to figure out the issue
     };
 
-    HttpDownloadRequest( Url url, std::string dir, off_t start = 0, off_t len = 0 );
+    HttpDownloadRequest( Url url, std::string dir, off_t start = -1, off_t len = 0 );
     virtual ~HttpDownloadRequest();
 
     Url url () const;

@@ -312,7 +312,10 @@ void HttpRequestDispatcherPrivate::dequeuePending()
     std::shared_ptr<HttpDownloadRequest> req = std::move( _pendingDownloads.front() );
     _pendingDownloads.pop_front();
 
-    req->d_func()->initialize( curl_easy_init() );
+    if ( !req->d_func()->initialize( curl_easy_init() ) ) {
+      req->d_func()->setResult( HttpRequestError( HttpRequestError::InternalError, -1, "Failed to initialize easy handle" ) );
+      continue;
+    }
     curl_multi_add_handle( _multi, req->d_func()->_easyHandle );
 
     req->d_func()->aboutToStart();
@@ -400,19 +403,6 @@ SignalProxy<void (const HttpRequestDispatcher &)> HttpRequestDispatcher::sigQueu
 SignalProxy<void (const HttpRequestDispatcher &)> HttpRequestDispatcher::sigError()
 {
   return d_func()->_sigError;
-}
-
-
-void HttpRequestDispatcher::runSync()
-{
-  asio::io_context ios;
-
-  run( &ios );
-
-  ios.run();
-
-  //destroy the timer before the IO context is killed
-  d_func()->_timer.reset();
 }
 
 }

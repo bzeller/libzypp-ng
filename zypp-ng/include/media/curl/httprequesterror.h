@@ -16,6 +16,7 @@ namespace zyppng {
   public:
     enum Type {
       NoError,
+      InternalError,
       Cancelled,
       CurlMError,
       CurlError,

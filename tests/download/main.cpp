@@ -2,11 +2,14 @@
 #include <media/curl/curl.h>
 #include <media/curl/request.h>
 #include <zypp/Digest.h>
+#include <boost/asio/io_context.hpp>
 
 int main ( int , char *[] )
 {
 
   std::cout << "Starting up " << std::endl;
+
+  boost::asio::io_context ios;
 
   std::string baseURL = "https://download.opensuse.org/distribution/leap/15.0/repo/oss/x86_64/";
   std::vector<std::string> downloads {
@@ -38,7 +41,14 @@ int main ( int , char *[] )
     zypp::Url url ( baseURL );
     url.appendPathName( filename );
 
-    std::shared_ptr<zyppng::HttpDownloadRequest> req = std::make_shared<zyppng::HttpDownloadRequest>( zypp::Url(url), "/tmp/test" );
+    off_t start = -1;
+    off_t len = 0;
+    if ( i == 0 ) {
+      start = 0;
+      len = 256;
+    }
+
+    std::shared_ptr<zyppng::HttpDownloadRequest> req = std::make_shared<zyppng::HttpDownloadRequest>( zypp::Url(url), "/tmp/test", start, len );
 
     std::shared_ptr<zypp::Digest> dig = std::make_shared<zypp::Digest>();
     if ( !dig->create( zypp::Digest::md5() ) ) {
@@ -76,8 +86,7 @@ int main ( int , char *[] )
   }
 
 
-  downloader.runSync();
-
-
-
+  downloader.run( &ios );
+  ios.run();
+  return 0;
 }

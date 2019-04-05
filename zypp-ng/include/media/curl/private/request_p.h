@@ -18,7 +18,7 @@ namespace zyppng {
     HttpDownloadRequestPrivate( Url &&url, std::string &&targetDir, off_t &&start, off_t &&len );
     virtual ~HttpDownloadRequestPrivate();
 
-    void initialize (void *easyHandle );
+    bool initialize(void *easyHandle );
     void aboutToStart ();
     void setResult ( HttpRequestError &&err );
     void reset ();
@@ -26,8 +26,9 @@ namespace zyppng {
     Url   _url;        //file URL
     std::string _targetDir; //target directory
 
-    off_t _start = 0;  //start offset of block to request
-    off_t _len   = 0;  //len of block to request ( 0 if full length )
+    off_t _start = -1;  //start offset of block to request
+    off_t _len   = 0;  //len of block to request ( 0 if full length
+    bool  _expectRangeStatus = false;
 
     std::shared_ptr<zypp::Digest> _digest; //digest to be used to calculate checksum
     std::string _expectedChecksum; //checksum to be expected after download is finished

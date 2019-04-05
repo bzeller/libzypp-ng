@@ -30,7 +30,6 @@ namespace zyppng {
 
       void enqueue ( const std::shared_ptr<HttpDownloadRequest> &req );
       void cancel  (HttpDownloadRequest &req , const std::string &reason = std::string() );
-      void runSync ();
       void run ( boost::asio::io_context *ctx );
 
       const HttpRequestError &lastError() const;

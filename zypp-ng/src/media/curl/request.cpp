@@ -17,7 +17,7 @@ namespace zyppng {
   {
   }
 
-  void HttpDownloadRequestPrivate::initialize( void *easyHandle )
+  bool HttpDownloadRequestPrivate::initialize( void *easyHandle )
   {
     reset();
 
@@ -45,6 +45,23 @@ namespace zyppng {
 
     _errorBuf.fill( '\0' );
     curl_easy_setopt( _easyHandle, CURLOPT_ERRORBUFFER, this->_errorBuf.data() );
+
+
+    std::string rangeDesc;
+    if ( _start >= 0) {
+      _expectRangeStatus = true;
+      rangeDesc = zypp::str::form("%llu-", static_cast<unsigned long long>( _start ));
+      if( _len > 0 ) {
+        rangeDesc.append( zypp::str::form( "%llu", static_cast<unsigned long long>(_start + _len - 1) ) );
+      }
+      if ( curl_easy_setopt( _easyHandle, CURLOPT_RANGE, rangeDesc.c_str() ), CURLE_OK ) {
+        strncpy( _errorBuf.data(), "curl_easy_setopt range failed", CURL_ERROR_SIZE);
+        return false;
+      }
+    } else {
+      _expectRangeStatus = false;
+    }
+    return true;
   }
 
   void HttpDownloadRequestPrivate::aboutToStart()
@@ -105,10 +122,24 @@ namespace zyppng {
     if ( !userdata )
       return 0;
 
+    //it is valid to call this function with no data to write, just return OK
     if ( size * nmemb == 0)
       return 0;
 
     HttpDownloadRequestPrivate *that = reinterpret_cast<HttpDownloadRequestPrivate *>( userdata );
+
+    //If we expect a file range we better double check that we got the status code for it
+    if ( that->_expectRangeStatus ) {
+      char *effurl;
+      (void)curl_easy_getinfo( that->_easyHandle, CURLINFO_EFFECTIVE_URL, &effurl);
+      if (effurl && !strncasecmp(effurl, "http", 4))
+      {
+        long statuscode = 0;
+        (void)curl_easy_getinfo( that->_easyHandle, CURLINFO_RESPONSE_CODE, &statuscode);
+        if (statuscode != 206)
+          return 0;
+      }
+    }
 
     if ( !that->_outFile ) {
       zypp::Pathname p( that->_url.getPathName( ) );
