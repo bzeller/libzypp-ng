@@ -9,6 +9,7 @@ namespace zyppng {
 
   using sigc::signal;
   using sigc::connection;
+  using sigc::trackable;
 
   template <typename T>
   using weak_trackable_ptr = sigc::internal::weak_raw_ptr<T>;

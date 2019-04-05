@@ -10,6 +10,7 @@
 
 template <typename T> inline T *zyppGetPtrHelper(T *ptr) { return ptr; }
 template <typename Ptr> inline auto zyppGetPtrHelper(const Ptr &ptr) -> decltype(ptr.operator->()) { return ptr.operator->(); }
+template <typename Ptr> inline auto zyppGetPtrHelper(Ptr &ptr) -> decltype(ptr.operator->()) { return ptr.operator->(); }
 
 #define ZYPP_DECLARE_PRIVATE(Class) \
     inline Class##Private* d_func() \

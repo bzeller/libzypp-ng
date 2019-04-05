@@ -30,5 +30,6 @@ ELSE()
 ENDIF()
 
 add_subdirectory( zypp-ng )
-add_subdirectory( tests )
+add_subdirectory( tests/glib )
+add_subdirectory( tests/download )
 add_subdirectory( util/progressbar )
