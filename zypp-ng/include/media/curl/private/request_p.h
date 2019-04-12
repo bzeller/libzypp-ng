@@ -5,7 +5,7 @@
 #include <media/curl/request.h>
 #include <curl/curl.h>
 #include <array>
-
+#include <memory>
 #include <zypp/Digest.h>
 
 namespace zyppng {
@@ -15,7 +15,7 @@ namespace zyppng {
   public:
     ZYPP_DECLARE_PUBLIC(HttpDownloadRequest)
 
-    HttpDownloadRequestPrivate( Url &&url, std::string &&targetDir, off_t &&start, off_t &&len );
+    HttpDownloadRequestPrivate( Url &&url, zypp::Pathname &&targetFile, off_t &&start, off_t &&len, HttpDownloadRequest::FileMode fMode );
     virtual ~HttpDownloadRequestPrivate();
 
     bool initialize(void *easyHandle );
@@ -24,11 +24,15 @@ namespace zyppng {
     void reset ();
 
     Url   _url;        //file URL
-    std::string _targetDir; //target directory
+    zypp::Pathname _targetFile; //target file
 
     off_t _start = -1;  //start offset of block to request
     off_t _len   = 0;  //len of block to request ( 0 if full length
+    off_t _downloaded = 0; //downloaded bytes
+    off_t _reportedSize = 0; //size reported by the curl backend
     bool  _expectRangeStatus = false;
+    HttpDownloadRequest::FileMode _fMode = HttpDownloadRequest::WriteExclusive;
+    HttpDownloadRequest::Priority _priority = HttpDownloadRequest::Normal;
 
     std::shared_ptr<zypp::Digest> _digest; //digest to be used to calculate checksum
     std::string _expectedChecksum; //checksum to be expected after download is finished
@@ -42,13 +46,17 @@ namespace zyppng {
     HttpRequestDispatcher *_dispatcher = nullptr; // the parent downloader owning this request
 
     //signals
-    signal<void ( const HttpDownloadRequest &req )> _sigStarted;
-    signal<void ( const HttpDownloadRequest &req, off_t dltotal, off_t dlnow, off_t ultotal, off_t ulnow )> _sigProgress;
-    signal<void ( const HttpDownloadRequest &req, const HttpRequestError &err )> _sigFinished;
+    signal<void ( HttpDownloadRequest &req )> _sigStarted;
+    signal<void ( HttpDownloadRequest &req, off_t dltotal, off_t dlnow, off_t ultotal, off_t ulnow )> _sigProgress;
+    signal<void ( HttpDownloadRequest &req, const HttpRequestError &err )> _sigFinished;
 
     static int curlProgressCallback ( void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow );
     static size_t writeCallback ( char *ptr, size_t size, size_t nmemb, void *userdata );
+
+    std::unique_ptr< curl_slist, decltype (&curl_slist_free_all) > _headers;
   };
+
+  std::vector<char> peek_data_fd ( FILE *fd, off_t offset, size_t count );
 }
 
 #endif

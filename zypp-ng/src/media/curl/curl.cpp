@@ -99,11 +99,22 @@ SignalProxy<void (const CurlSocketListener &)> CurlSocketListener::sigError()
 { return _error; }
 
 
-HttpRequestDispatcherPrivate::HttpRequestDispatcherPrivate(std::string &&target) : _targetDir( std::move(target))
-{ }
+HttpRequestDispatcherPrivate::HttpRequestDispatcherPrivate( asio::io_context &ctx )
+  : _ioContext( &ctx )
+  , _timer( std::make_unique<asio::deadline_timer>( ctx ) )
+  , _multi ( curl_multi_init() )
+{
+  curl_multi_setopt( _multi, CURLMOPT_TIMERFUNCTION, HttpRequestDispatcherPrivate::multi_timer_cb );
+  curl_multi_setopt( _multi, CURLMOPT_TIMERDATA, reinterpret_cast<void *>( this ) );
+  curl_multi_setopt( _multi, CURLMOPT_SOCKETFUNCTION, HttpRequestDispatcherPrivate::socket_callback );
+  curl_multi_setopt( _multi, CURLMOPT_SOCKETDATA, reinterpret_cast<void *>( this ) );
+}
 
 HttpRequestDispatcherPrivate::~HttpRequestDispatcherPrivate()
-{ }
+{
+  cancelAll( HttpRequestError( HttpRequestError::Cancelled, -1, "Dispatcher shutdown" ) );
+  curl_multi_cleanup( _multi );
+}
 
 //called by curl to setup a timer
 int HttpRequestDispatcherPrivate::multi_timer_cb( CURLM *, long timeout_ms, void *thatPtr )
@@ -248,6 +259,7 @@ void HttpRequestDispatcherPrivate::handleMultiSocketAction(curl_socket_t nativeS
     _timer->cancel();
   } else {
     dequeuePending();
+    _sigQueueFinished.emit( *z_func() );
   }
 }
 
@@ -288,6 +300,7 @@ void HttpRequestDispatcherPrivate::setFinished( HttpDownloadRequest &req, HttpRe
     if ( easyHandle )
       curl_easy_reset( easyHandle );
 
+    //clean up for now, later we might reuse handles
     curl_easy_cleanup( easyHandle );
   }
 
@@ -327,8 +340,8 @@ void HttpRequestDispatcherPrivate::dequeuePending()
   //check for empty queues here?
 }
 
-HttpRequestDispatcher::HttpRequestDispatcher( std::string targetDir )
-  : Base( * new HttpRequestDispatcherPrivate ( std::move(targetDir) ) )
+HttpRequestDispatcher::HttpRequestDispatcher( boost::asio::io_context &ctx )
+  : Base( * new HttpRequestDispatcherPrivate ( ctx ) )
 {
 
 }
@@ -337,15 +350,31 @@ void HttpRequestDispatcher::enqueue(const std::shared_ptr<HttpDownloadRequest> &
 {
   if ( !req )
     return;
-
+  Z_D();
   req->d_func()->_dispatcher = this;
-  d_func()->_pendingDownloads.push_back( req );
+  if ( req->priority() == HttpDownloadRequest::Normal )
+    d->_pendingDownloads.push_back( req );
+  else {
+    auto it = std::find_if( d->_pendingDownloads.begin(), d->_pendingDownloads.end(), []( const auto &req ){
+      return req->priority() ==  HttpDownloadRequest::Normal;
+    });
+
+    //if we have a valid iterator, decrement we found a Normal pending download request, insert before that
+    if ( it != d->_pendingDownloads.end() && it != d->_pendingDownloads.begin() )
+      it--;
+    d->_pendingDownloads.insert( it, req );
+  }
 
   //dequeue if running and we have capacity
-  d_func()->dequeuePending();
+  d->dequeuePending();
 }
 
 void HttpRequestDispatcher::cancel( HttpDownloadRequest &req, const std::string &reason )
+{
+  cancel( req, HttpRequestError( HttpRequestError::Cancelled, -1, reason.size() ? reason : "Request explicitely cancelled" ) );
+}
+
+void HttpRequestDispatcher::cancel(HttpDownloadRequest &req, const HttpRequestError &err)
 {
   Z_D();
 
@@ -354,29 +383,13 @@ void HttpRequestDispatcher::cancel( HttpDownloadRequest &req, const std::string 
     return;
   }
 
-  d->setFinished( req, HttpRequestError( HttpRequestError::Cancelled, -1, reason.size() ? reason : "Request explicitely cancelled" ) );
+  d->setFinished( req, err );
 }
 
-void HttpRequestDispatcher::run( boost::asio::io_context *ctx )
+void HttpRequestDispatcher::run()
 {
   Z_D();
-
-  // only once
-  if ( d->_isRunning )
-    return;
-
-  d->_ioContext = ctx;
   d->_isRunning = true;
-
-  if ( !d->_timer )
-    d->_timer = std::make_unique<asio::deadline_timer>( *ctx );
-
-  d->_multi = curl_multi_init();
-  curl_multi_setopt( d->_multi, CURLMOPT_TIMERFUNCTION, HttpRequestDispatcherPrivate::multi_timer_cb );
-  curl_multi_setopt( d->_multi, CURLMOPT_TIMERDATA, reinterpret_cast<void *>( d ) );
-  curl_multi_setopt( d->_multi, CURLMOPT_SOCKETFUNCTION, HttpRequestDispatcherPrivate::socket_callback );
-  curl_multi_setopt( d->_multi, CURLMOPT_SOCKETDATA, reinterpret_cast<void *>( d ) );
-
   d->dequeuePending();
 }
 

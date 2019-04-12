@@ -73,11 +73,10 @@ namespace zyppng {
   {
     ZYPP_DECLARE_PUBLIC(HttpRequestDispatcher)
   public:
-    HttpRequestDispatcherPrivate ( std::string &&target );
+    HttpRequestDispatcherPrivate (  boost::asio::io_context &ctx  );
     virtual ~HttpRequestDispatcherPrivate();
 
-    std::string _targetDir;
-    size_t _maxConnections = 8;
+    size_t _maxConnections = 10;
 
     std::deque< std::shared_ptr<HttpDownloadRequest> > _pendingDownloads;
     std::vector< std::shared_ptr<HttpDownloadRequest> > _runningDownloads;

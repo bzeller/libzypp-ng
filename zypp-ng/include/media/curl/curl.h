@@ -26,11 +26,12 @@ namespace zyppng {
     ZYPP_DECLARE_PRIVATE(HttpRequestDispatcher)
     public:
 
-      HttpRequestDispatcher (std::string targetDir );
+      HttpRequestDispatcher ( boost::asio::io_context &ctx );
 
       void enqueue ( const std::shared_ptr<HttpDownloadRequest> &req );
-      void cancel  (HttpDownloadRequest &req , const std::string &reason = std::string() );
-      void run ( boost::asio::io_context *ctx );
+      void cancel  ( HttpDownloadRequest &req , const std::string &reason = std::string() );
+      void cancel  ( HttpDownloadRequest &req , const HttpRequestError &err );
+      void run ( );
 
       const HttpRequestError &lastError() const;
 

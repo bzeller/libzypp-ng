@@ -2,14 +2,36 @@
 #include <media/curl/curl.h>
 #include <iostream>
 #include <zypp/Pathname.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 namespace zyppng {
 
-  HttpDownloadRequestPrivate::HttpDownloadRequestPrivate(Url &&url, std::string &&targetDir, off_t &&start, off_t &&len)
+  std::vector<char> peek_data_fd( FILE *fd, off_t offset, size_t count )
+  {
+    if ( !fd )
+      return {};
+
+    fflush( fd );
+
+    std::vector<char> data( count + 1 , '\0' );
+
+    ssize_t l = -1;
+    while ((l = pread( fileno( fd ), data.data(), count, offset ) ) == -1 && errno == EINTR)
+      ;
+    if (l == -1)
+      return {};
+
+    return data;
+  }
+
+  HttpDownloadRequestPrivate::HttpDownloadRequestPrivate(Url &&url, zypp::Pathname &&targetFile, off_t &&start, off_t &&len, HttpDownloadRequest::FileMode fMode )
     : _url ( std::move(url) )
-    , _targetDir ( std::move( targetDir) )
+    , _targetFile ( std::move( targetFile) )
     , _start ( std::move(start) )
     , _len ( std::move(len) )
+    , _fMode ( std::move(fMode) )
+    , _headers( std::unique_ptr< curl_slist, decltype (&curl_slist_free_all) >( nullptr, &curl_slist_free_all ) )
   {
   }
 
@@ -61,6 +83,10 @@ namespace zyppng {
     } else {
       _expectRangeStatus = false;
     }
+
+    if ( _headers )
+      curl_easy_setopt( _easyHandle, CURLOPT_HTTPHEADER, _headers.get() );
+
     return true;
   }
 
@@ -105,6 +131,8 @@ namespace zyppng {
     _easyHandle = nullptr;
     _result = HttpRequestError();
     _state = HttpDownloadRequest::Pending;
+    _downloaded = 0;
+    _reportedSize = 0;
     _errorBuf.fill( 0 );
   }
 
@@ -113,6 +141,8 @@ namespace zyppng {
     if ( !clientp )
       return 0;
     HttpDownloadRequestPrivate *that = reinterpret_cast<HttpDownloadRequestPrivate *>( clientp );
+    that->_downloaded   = dlnow;
+    that->_reportedSize = dltotal;
     that->_sigProgress.emit( *that->z_func(), dltotal, dlnow, ultotal, ulnow );
     return 0;
   }
@@ -142,12 +172,30 @@ namespace zyppng {
     }
 
     if ( !that->_outFile ) {
-      zypp::Pathname p( that->_url.getPathName( ) );
-      that->_outFile = fopen( ( that->_targetDir + "/" + p.basename() ).c_str(), "w");
+      std::string openMode = "w+b";
+      if ( that->_fMode == HttpDownloadRequest::WriteShared )
+        openMode = "r+b";
+
+      that->_outFile = fopen( that->_targetFile.asString().c_str() , openMode.c_str() );
+
+      //if the file does not exist create a new one
+      if ( !that->_outFile && that->_fMode == HttpDownloadRequest::WriteShared ) {
+        that->_outFile = fopen( that->_targetFile.asString().c_str() , "w+b" );
+      }
+
+      if ( !that->_outFile ) {
+        strncpy( that->_errorBuf.data(), "Unable to open target file.", CURL_ERROR_SIZE);
+        return 0;
+      }
+
+      if ( that->_start > 0 )
+        if ( fseek( that->_outFile, that->_start, SEEK_SET ) != 0 ) {
+          strncpy( that->_errorBuf.data(), "Unable to set output file pointer.", CURL_ERROR_SIZE);
+          return 0;
+        }
     }
 
      size_t written = fwrite( ptr, size, nmemb, that->_outFile );
-
      if ( that->_digest ) {
        that->_digest->update( ptr, written );
      }
@@ -155,8 +203,8 @@ namespace zyppng {
      return written;
   }
 
-  HttpDownloadRequest::HttpDownloadRequest(zyppng::Url url, std::string dir, off_t start, off_t len)
-    : Base ( *new HttpDownloadRequestPrivate( std::move(url), std::move(dir), std::move(start), std::move(len) ) )
+  HttpDownloadRequest::HttpDownloadRequest(zyppng::Url url, zypp::filesystem::Pathname targetFile, off_t start, off_t len, zyppng::HttpDownloadRequest::FileMode fMode)
+    : Base ( *new HttpDownloadRequestPrivate( std::move(url), std::move(targetFile), std::move(start), std::move(len), std::move(fMode) ) )
   {
   }
 
@@ -171,9 +219,72 @@ namespace zyppng {
       fclose( d->_outFile );
   }
 
+  void HttpDownloadRequest::setPriority(HttpDownloadRequest::Priority prio)
+  {
+    d_func()->_priority = prio;
+  }
+
+  HttpDownloadRequest::Priority HttpDownloadRequest::priority() const
+  {
+    return d_func()->_priority;
+  }
+
+  void *HttpDownloadRequest::nativeHandle() const
+  {
+    return d_func()->_easyHandle;
+  }
+
+  std::vector<char> HttpDownloadRequest::peekData( off_t offset, size_t count ) const
+  {
+    Z_D();
+    return peek_data_fd( d->_outFile, offset, count );
+  }
+
   Url HttpDownloadRequest::url() const
   {
     return d_func()->_url;
+  }
+
+  void HttpDownloadRequest::setUrl(const Url &url)
+  {
+    Z_D();
+    if ( d->_state == HttpDownloadRequest::Running )
+      return;
+
+    d->_url = url;
+  }
+
+  const zypp::filesystem::Pathname &HttpDownloadRequest::targetFilePath() const
+  {
+    return d_func()->_targetFile;
+  }
+
+  std::string HttpDownloadRequest::contentType() const
+  {
+    char *ptr = NULL;
+    if ( curl_easy_getinfo( d_func()->_easyHandle, CURLINFO_CONTENT_TYPE, &ptr ) == CURLE_OK && ptr )
+      return std::string(ptr);
+    return std::string();
+  }
+
+  off_t HttpDownloadRequest::downloadOffset() const
+  {
+    return d_func()->_start;
+  }
+
+  off_t HttpDownloadRequest::reportedByteCount() const
+  {
+    return d_func()->_reportedSize;
+  }
+
+  off_t HttpDownloadRequest::expectedByteCount() const
+  {
+    return d_func()->_len;
+  }
+
+  off_t HttpDownloadRequest::downloadedByteCount() const
+  {
+    return d_func()->_downloaded;
   }
 
   void HttpDownloadRequest::setDigest( std::shared_ptr<zypp::Digest> dig )
@@ -216,19 +327,32 @@ namespace zyppng {
     return error().isError();
   }
 
-  SignalProxy<void (const HttpDownloadRequest &req)> HttpDownloadRequest::sigStarted()
+  bool HttpDownloadRequest::addRequestHeader( std::string &&header )
+  {
+    Z_D();
+
+    curl_slist *res = curl_slist_append( d->_headers ? d->_headers.get() : nullptr, header.c_str() );
+    if ( !res )
+      return false;
+
+    if ( !d->_headers )
+      d->_headers = std::unique_ptr< curl_slist, decltype (&curl_slist_free_all) >( res, &curl_slist_free_all );
+  }
+
+  SignalProxy<void (HttpDownloadRequest &req)> HttpDownloadRequest::sigStarted()
   {
     return d_func()->_sigStarted;
   }
 
-  SignalProxy<void (const HttpDownloadRequest &req, off_t dltotal, off_t dlnow, off_t ultotal, off_t ulnow)> HttpDownloadRequest::sigProgress()
+  SignalProxy<void (HttpDownloadRequest &req, off_t dltotal, off_t dlnow, off_t ultotal, off_t ulnow)> HttpDownloadRequest::sigProgress()
   {
     return d_func()->_sigProgress;
   }
 
-  SignalProxy<void (const zyppng::HttpDownloadRequest &req, const zyppng::HttpRequestError &err)> HttpDownloadRequest::sigFinished()
+  SignalProxy<void (zyppng::HttpDownloadRequest &req, const zyppng::HttpRequestError &err)> HttpDownloadRequest::sigFinished()
   {
     return d_func()->_sigFinished;
   }
+
 
 }

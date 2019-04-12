@@ -54,6 +54,8 @@ namespace zyppng {
      */
     bool isError () const;
 
+    static std::string typeToString ( Type t );
+
   private:
     Type _type = NoError;
     int _nativeCode = -1;

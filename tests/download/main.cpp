@@ -1,6 +1,7 @@
 #include <iostream>
 #include <media/curl/curl.h>
 #include <media/curl/request.h>
+#include <media/curl/downloader.h>
 #include <zypp/Digest.h>
 #include <boost/asio/io_context.hpp>
 
@@ -13,7 +14,9 @@ int main ( int , char *[] )
 
   std::string baseURL = "https://download.opensuse.org/distribution/leap/15.0/repo/oss/x86_64/";
   std::vector<std::string> downloads {
-    "11822f1421ae50fb1a07f72220b79000", "0ad-0.0.22-lp150.2.10.x86_64.rpm",
+    "11822f1421ae50fb1a07f72220b79000", "0ad-0.0.22-lp150.2.10.x86_64.rpm"
+#if 0
+    ,
     "b0aaaca4c3763792a495de293c8431c5", "alsa-1.1.5-lp150.4.3.x86_64.rpm",
     "a6eb92351c03bcf603a09a2e8eddcead", "amarok-2.9.0-lp150.2.1.x86_64.rpm",
     "a2fd84f6d0530abbfe6d5a3da3940d70", "aspell-0.60.6.1-lp150.1.15.x86_64.rpm",
@@ -29,9 +32,36 @@ int main ( int , char *[] )
     "33a0e878c92b5b298cd6aaec44c0aa46", "compositeproto-devel-0.4.2-lp150.1.6.x86_64.rpm",
     "646c6cc180caf27f56bb9ec5b4d50f5b", "corosync-testagents-2.4.4-lp150.3.1.x86_64.rpm",
     "10685e733abf77e7439e33471b23612c", "cpupower-bench-4.15-lp150.1.4.x86_64.rpm"
+#endif
   };
 
-  zyppng::HttpRequestDispatcher downloader( "/tmp/test" );
+#if 1
+
+  zyppng::Downloader dl( ios );
+  assert ( downloads.size() % 2 == 0 );
+  for ( int i = 0; i < downloads.size(); i+=2 ) {
+    //const std::string &checksum = downloads[i];
+    const std::string &filename = downloads[i+1];
+
+    zypp::Url url ( baseURL );
+    url.appendPathName( filename );
+
+    zypp::Pathname target("/tmp/test");
+    target = target / filename;
+
+    std::shared_ptr<zyppng::Download> req = dl.downloadFile( { url }, target );
+    req->sigStarted().connect( []( zyppng::Download &dl ) {
+      std::cout << "Download started: " << dl.targetPath() << std::endl;
+    });
+
+    req->sigStateChanged().connect( []( zyppng::Download &dl, zyppng::Download::State state ) {
+      std::cout << "Download state changed: " << dl.targetPath() << " State: " << state << std::endl;
+    });
+  }
+
+#else
+
+  zyppng::HttpRequestDispatcher downloader( ios );
 
   assert ( downloads.size() % 2 == 0 );
   for ( int i = 0; i < downloads.size(); i+=2 ) {
@@ -85,8 +115,9 @@ int main ( int , char *[] )
 
   }
 
-
-  downloader.run( &ios );
+  downloader.run( );
+#endif
   ios.run();
+
   return 0;
 }

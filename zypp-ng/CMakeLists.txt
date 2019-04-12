@@ -41,6 +41,7 @@ set(HEADER
   include/media/curl/curl.h
   include/media/curl/request.h
   include/media/curl/httprequesterror.h
+  include/media/curl/downloader.h
 )
 
 set(PRIVATE_HEADER
@@ -50,6 +51,7 @@ set(PRIVATE_HEADER
   include/repo/private/refreshrepo_p.h
   include/media/curl/private/curl_p.h
   include/media/curl/private/request_p.h
+  include/media/curl/private/downloader_p.h
 )
 
 set(SOURCES
@@ -60,6 +62,7 @@ set(SOURCES
   src/media/curl/curl.cpp
   src/media/curl/request.cpp
   src/media/curl/httprequesterror.cpp
+  src/media/curl/downloader.cpp
 )
 
 add_library( ${PROJECT_NAME} SHARED ${HEADER} ${PRIVATE_HEADER} ${SOURCES} )
