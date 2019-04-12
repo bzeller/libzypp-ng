@@ -4,6 +4,7 @@
 #include <zypp/Pathname.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <strstream>
 
 namespace zyppng {
 
@@ -108,9 +109,18 @@ namespace zyppng {
       //we have a successful download, lets see if the checksum is fine IF we have one
       _state = HttpDownloadRequest::Finished;
       if ( _expectedChecksum.size() && _digest ) {
-        if ( _digest->digest() != _expectedChecksum ) {
+        if ( _digest->digestVector() != _expectedChecksum ) {
           _state = HttpDownloadRequest::Error;
-          _result = HttpRequestError( HttpRequestError::InvalidChecksum, -1, (zypp::str::Format("Invalid checksum %1%, expected checksum %2%") % _digest->digest() % _expectedChecksum ) );
+
+          std::string e;
+          for (int j = 0; j < _expectedChecksum.size(); j++)
+	    e += zypp::str::form("%02hhx", _expectedChecksum[j]);
+
+	  std::string d;
+          for (int j = 0; j < _digest->digestVector().size(); j++)
+	    d += zypp::str::form("%02hhx", _digest->digestVector()[j]);
+
+          _result = HttpRequestError( HttpRequestError::InvalidChecksum, -1, (zypp::str::Format("Invalid checksum %1% (%2%), expected checksum %3%") % _digest->digest() % e % d ) );
         }
       }
     } else
@@ -292,7 +302,7 @@ namespace zyppng {
     d_func()->_digest = dig;
   }
 
-  void HttpDownloadRequest::setExpectedChecksum( std::string checksum )
+  void HttpDownloadRequest::setExpectedChecksum(std::vector<unsigned char> checksum )
   {
     d_func()->_expectedChecksum = std::move(checksum);
   }

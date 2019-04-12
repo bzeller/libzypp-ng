@@ -5,6 +5,29 @@
 #include <zypp/Digest.h>
 #include <boost/asio/io_context.hpp>
 
+static std::vector<char>
+hexstr2bytes( std::string str)
+{
+  std::vector<char> bytes;
+  for ( int i = 0; i < str.length(); i+=2 )
+    {
+#define c2h(c) (((c)>='0' && (c)<='9') ? ((c)-'0')              \
+                : ((c)>='a' && (c)<='f') ? ((c)-('a'-10))       \
+                : ((c)>='A' && (c)<='F') ? ((c)-('A'-10))       \
+                : -1)
+      int v = c2h(str[i]);
+      if (v < 0)
+        return {};
+      bytes[i] = v;
+      v = c2h(str[i+1]);
+      if (v < 0)
+        return {};
+      bytes[i] = (bytes[i] << 4) | v;
+#undef c2h
+    }
+  return bytes;
+}
+
 int main ( int , char *[] )
 {
 
@@ -14,9 +37,7 @@ int main ( int , char *[] )
 
   std::string baseURL = "https://download.opensuse.org/distribution/leap/15.0/repo/oss/x86_64/";
   std::vector<std::string> downloads {
-    "11822f1421ae50fb1a07f72220b79000", "0ad-0.0.22-lp150.2.10.x86_64.rpm"
-#if 0
-    ,
+    "11822f1421ae50fb1a07f72220b79000", "0ad-0.0.22-lp150.2.10.x86_64.rpm",
     "b0aaaca4c3763792a495de293c8431c5", "alsa-1.1.5-lp150.4.3.x86_64.rpm",
     "a6eb92351c03bcf603a09a2e8eddcead", "amarok-2.9.0-lp150.2.1.x86_64.rpm",
     "a2fd84f6d0530abbfe6d5a3da3940d70", "aspell-0.60.6.1-lp150.1.15.x86_64.rpm",
@@ -32,7 +53,6 @@ int main ( int , char *[] )
     "33a0e878c92b5b298cd6aaec44c0aa46", "compositeproto-devel-0.4.2-lp150.1.6.x86_64.rpm",
     "646c6cc180caf27f56bb9ec5b4d50f5b", "corosync-testagents-2.4.4-lp150.3.1.x86_64.rpm",
     "10685e733abf77e7439e33471b23612c", "cpupower-bench-4.15-lp150.1.4.x86_64.rpm"
-#endif
   };
 
 #if 1

@@ -6,12 +6,12 @@ zyppng::HttpRequestError::HttpRequestError(zyppng::HttpRequestError::Type t_r, i
   , _nativeCode( nativeCode_r )
 , _error ( std::move(err_r) )
 {
-  if ( !err_r.size() ) {
+  if ( !_error.size() ) {
 
     const char *nativeErr = nullptr;
-    if ( t_r == CurlMError && err_r.empty() ) {
+    if ( t_r == CurlMError && _error.empty() ) {
       nativeErr = curl_multi_strerror( static_cast<CURLMcode>(nativeCode_r) );
-    } else if ( t_r == CurlError && err_r.empty() ) {
+    } else if ( t_r == CurlError && _error.empty() ) {
       nativeErr = curl_easy_strerror( static_cast<CURLcode>(nativeCode_r) );
     }
 

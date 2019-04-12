@@ -35,7 +35,7 @@ namespace zyppng {
     HttpDownloadRequest::Priority _priority = HttpDownloadRequest::Normal;
 
     std::shared_ptr<zypp::Digest> _digest; //digest to be used to calculate checksum
-    std::string _expectedChecksum; //checksum to be expected after download is finished
+    std::vector<unsigned char> _expectedChecksum; //checksum to be expected after download is finished
 
     HttpDownloadRequest::State _state = HttpDownloadRequest::Pending;
     HttpRequestError _result;

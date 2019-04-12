@@ -131,8 +131,10 @@ namespace zyppng {
      * @brief setExpectedChecksum
      * Enables automated checking of downloaded contents against a checksum.
      * Only makes a difference if a \sa zypp::Digest was with with \sa setDigest.
+     *
+     * \note expects checksum in byte NOT in string format
      */
-    void setExpectedChecksum ( std::string checksum );
+    void setExpectedChecksum (std::vector<unsigned char> checksum );
 
     /**
      * @brief state
